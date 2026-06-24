@@ -11,7 +11,7 @@ img = cv2.imread(
 
 img = cv2.resize(img, (86, 86))
 
-img = img.astype("float32") / 255.0
+img = img.astype("float32") 
 
 img = np.expand_dims(img, axis=-1)
 img = np.expand_dims(img, axis=0)
