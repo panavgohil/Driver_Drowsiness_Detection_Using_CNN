@@ -1,17 +1,6 @@
 import cv2
 import mediapipe as mp
-import os
-import time
 
-# -----------------------------
-# Create Dataset Folders
-# -----------------------------
-os.makedirs("my_dataset/awake", exist_ok=True)
-os.makedirs("my_dataset/sleepy", exist_ok=True)
-
-# -----------------------------
-# MediaPipe Setup
-# -----------------------------
 mp_face_mesh = mp.solutions.face_mesh
 
 LEFT_EYE = [33, 160, 158, 133, 153, 144]
@@ -23,25 +12,8 @@ face_mesh = mp_face_mesh.FaceMesh(
     refine_landmarks=True
 )
 
-# -----------------------------
-# Camera
-# -----------------------------
 cap = cv2.VideoCapture(0)
 
-# -----------------------------
-# Counters
-# -----------------------------
-awake_count = len(os.listdir("my_dataset/awake"))
-sleepy_count = len(os.listdir("my_dataset/sleepy"))
-
-mode = "PAUSED"
-
-SAVE_INTERVAL = 0.05      # 50 ms
-last_save_time = time.time()
-
-# -----------------------------
-# Eye Crop Function
-# -----------------------------
 def get_eye_crop(face_landmarks, eye_indices, frame):
 
     h, w, _ = frame.shape
@@ -64,13 +36,9 @@ def get_eye_crop(face_landmarks, eye_indices, frame):
     y_min = max(0, min(y_coords) - padding)
     y_max = min(h, max(y_coords) + padding)
 
-    eye_crop = frame[y_min:y_max, x_min:x_max]
+    return frame[y_min:y_max, x_min:x_max]
 
-    return eye_crop
 
-# -----------------------------
-# Main Loop
-# -----------------------------
 while True:
 
     ret, frame = cap.read()
@@ -111,134 +79,31 @@ while True:
                     left_eye_resized
                 )
 
-                current_time = time.time()
+                # Continuously overwrite latest eye image
+                cv2.imwrite(
+                    "current_eye.jpg",
+                    left_eye_resized
+                )
 
-                if current_time - last_save_time >= SAVE_INTERVAL:
-
-                    if mode == "AWAKE":
-
-                        filename = f"my_dataset/awake/awake_{awake_count}.jpg"
-
-                        cv2.imwrite(
-                            filename,
-                            left_eye_resized
-                        )
-
-                        awake_count += 1
-
-                    elif mode == "SLEEPY":
-
-                        filename = f"my_dataset/sleepy/sleepy_{sleepy_count}.jpg"
-
-                        cv2.imwrite(
-                            filename,
-                            left_eye_resized
-                        )
-
-                        sleepy_count += 1
-
-                    last_save_time = current_time
-
-            # Draw Left Eye
+            # Draw left eye landmarks
             for idx in LEFT_EYE:
-
                 x = int(face_landmarks.landmark[idx].x * w)
                 y = int(face_landmarks.landmark[idx].y * h)
+                cv2.circle(frame, (x, y), 2, (0,255,0), -1)
 
-                cv2.circle(
-                    frame,
-                    (x, y),
-                    2,
-                    (0, 255, 0),
-                    -1
-                )
-
-            # Draw Right Eye
+            # Draw right eye landmarks
             for idx in RIGHT_EYE:
-
                 x = int(face_landmarks.landmark[idx].x * w)
                 y = int(face_landmarks.landmark[idx].y * h)
-
-                cv2.circle(
-                    frame,
-                    (x, y),
-                    2,
-                    (255, 0, 0),
-                    -1
-
-                )
-
-    # -----------------------------
-    # UI
-    # -----------------------------
-    cv2.putText(
-        frame,
-        f"MODE : {mode}",
-        (20, 35),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.8,
-        (0,255,0),
-        2
-    )
-
-    cv2.putText(
-        frame,
-        f"Awake : {awake_count}",
-        (20,70),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.7,
-        (255,255,0),
-        2
-    )
-
-    cv2.putText(
-        frame,
-        f"Sleepy : {sleepy_count}",
-        (20,105),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.7,
-        (0,0,255),
-        2
-    )
-
-    cv2.putText(
-        frame,
-        "1=Awake  2=Sleepy  0=Pause  Q=Quit",
-        (20,140),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.6,
-        (255,255,255),
-        2
-    )
+                cv2.circle(frame, (x, y), 2, (255,0,0), -1)
 
     cv2.imshow(
         "Eye Landmarks",
         frame
     )
 
-    key = cv2.waitKey(1) & 0xFF
-
-    if key == ord('1'):
-        mode = "AWAKE"
-        print("Collecting AWAKE images...")
-
-    elif key == ord('2'):
-        mode = "SLEEPY"
-        print("Collecting SLEEPY images...")
-
-    elif key == ord('0'):
-        mode = "PAUSED"
-        print("Collection Paused")
-
-    elif key == ord('q'):
+    if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
-# -----------------------------
-# Cleanup
-# -----------------------------
 cap.release()
 cv2.destroyAllWindows()
-
-print("\nCollection Complete!")
-print("Awake Images :", awake_count)
-print("Sleepy Images:", sleepy_count)
